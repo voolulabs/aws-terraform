@@ -1,0 +1,38 @@
+name: Destroy
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
+  pull-requests: write # This is required to add comments to Pull Requests
+  deployments: write # This is required to deactivate deployments
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    name: Progressive Destroy
+    uses: aws-samples/aws-terraform-reusable-workflow/.github/workflows/terraform-reusable.yml@v1.3.0
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        include:
+          - environment: dev
+            region: us-east-1
+          - environment: test
+            region: us-west-2
+          - environment: prod
+            region: us-east-2
+    with:
+      deploy: false
+      tf-version: ${{ vars.TF_VERSION }}
+      aws-region: ${{ matrix.region }}
+      environment: ${{ matrix.environment }}
+      ref: v1.3.0
+      local-execution-mode: true
+      enable-github-modules: true
+    secrets:
+      terraform-execution-iam-plan-role-arn: ${{ secrets.TF_PLAN_ROLE_ARN }}
+      terraform-execution-iam-apply-role-arn: ${{ secrets.TF_APPLY_ROLE_ARN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
