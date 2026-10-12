@@ -39,27 +39,27 @@ variable "identity_center_enabled" {
 }
 
 variable "owner_user_name" {
-  description = "Usuário Identity Center do dono (PREENCHER com o email real)"
+  description = "Usuário Identity Center do dono"
   type        = string
-  default     = "PREENCHER"
+  default     = "chico"
 }
 
 variable "owner_email" {
   description = "Email do dono no Identity Center"
   type        = string
-  default     = "PREENCHER@exemplo.com.br"
+  default     = "chico@agenciavoolu.com"
 }
 
 variable "owner_display_name" {
   description = "Nome exibido do dono"
   type        = string
-  default     = "Dono Voolulabs"
+  default     = "Chico Voolulabs"
 }
 
 variable "owner_given_name" {
   description = "Primeiro nome do dono"
   type        = string
-  default     = "Dono"
+  default     = "Chico"
 }
 
 variable "owner_family_name" {
