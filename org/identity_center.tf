@@ -57,8 +57,8 @@ resource "aws_identitystore_group_membership" "owner_admin" {
 resource "aws_ssoadmin_permission_set" "administrator" {
   count = var.identity_center_enabled ? 1 : 0
 
-  instance_arn = local.identity_center
-  name         = "AdministratorAccess"
+  instance_arn     = local.identity_center
+  name             = "AdministratorAccess"
   session_duration = "PT4H"
 }
 
@@ -87,8 +87,10 @@ resource "aws_ssoadmin_managed_policy_attachment" "developer" {
 }
 
 # Admins em todas as contas (gestão + membros); devs só em dev/test.
+# Gate via for_each (vazio quando o Identity Center não está habilitado —
+# primeiro apply): count e for_each são mutuamente exclusivos no Terraform.
 resource "aws_ssoadmin_account_assignment" "admins_all" {
-  for_each = toset(concat([data.aws_caller_identity.current.account_id], [for k, a in aws_organizations_account.env : a.id]))
+  for_each = var.identity_center_enabled ? toset(concat([data.aws_caller_identity.current.account_id], [for k, a in aws_organizations_account.env : a.id])) : toset([])
 
   instance_arn       = local.identity_center
   permission_set_arn = aws_ssoadmin_permission_set.administrator[0].arn
@@ -99,7 +101,7 @@ resource "aws_ssoadmin_account_assignment" "admins_all" {
 }
 
 resource "aws_ssoadmin_account_assignment" "developers_env" {
-  for_each = toset([aws_organizations_account.env["dev"].id, aws_organizations_account.env["test"].id])
+  for_each = var.identity_center_enabled ? toset([aws_organizations_account.env["dev"].id, aws_organizations_account.env["test"].id]) : toset([])
 
   instance_arn       = local.identity_center
   permission_set_arn = aws_ssoadmin_permission_set.developer[0].arn
