@@ -57,7 +57,7 @@ jobs:
   plan-dev:
     name: plan dev
     needs: [checks]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
   plan-test:
     name: plan test
     needs: [checks]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -107,7 +107,7 @@ jobs:
   plan-prod:
     name: plan prod
     needs: [checks]
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -132,7 +132,7 @@ jobs:
   apply-dev:
     name: apply dev
     needs: [checks]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     environment: dev
     steps:
@@ -153,7 +153,7 @@ jobs:
   apply-test:
     name: apply test
     needs: [apply-dev]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     environment: test
     steps:
@@ -174,7 +174,7 @@ jobs:
   apply-prod:
     name: apply prod (com approval)
     needs: [apply-test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     environment: prod # exige approval configurado no repo
     steps:
@@ -195,7 +195,7 @@ jobs:
   apply-org:
     name: apply org (manual)
     needs: [checks]
-    if: github.event_name == 'workflow_dispatch' && inputs.stack == 'org'
+    if: github.event_name == 'workflow_dispatch' && inputs.stack == 'org' && vars.IAC_READY == 'true'
     runs-on: ubuntu-latest
     environment: org-management
     steps:

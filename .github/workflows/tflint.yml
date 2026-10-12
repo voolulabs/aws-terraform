@@ -21,4 +21,4 @@ jobs:
       - name: Init TFLint
         run: tflint --init
       - name: Run TFLint
-        run: tflint
+        run: tflint --recursive
