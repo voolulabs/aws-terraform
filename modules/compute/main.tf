@@ -107,7 +107,7 @@ data "archive_file" "stop_lambda" {
   type        = "zip"
   output_path = "${path.module}/.build/stop_lambda.zip"
   source {
-    content = <<-PY
+    content  = <<-PY
       import boto3, json, os
       def handler(event, context):
           ec2 = boto3.client("ec2")
@@ -123,10 +123,49 @@ data "archive_file" "stop_lambda" {
   }
 }
 
-resource "aws_iam_role" "stop_lambda" {
+# Duas roles (revisão adversarial 2026-10-12): execução da Lambda exige trust
+# de lambda.amazonaws.com; o Scheduler precisa de uma role invocadora própria
+# com lambda:InvokeFunction. Uma role única com os dois principals não serve —
+# cada serviço valida o trust do papel que exerce.
+resource "aws_iam_role" "stop_exec" {
   count = var.stop_schedule_cron != "" ? 1 : 0
 
-  name = "${var.name}-stop-schedule"
+  name = "${var.name}-stop-exec"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "stop_exec" {
+  count = var.stop_schedule_cron != "" ? 1 : 0
+
+  role = aws_iam_role.stop_exec[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:StopInstances", "ec2:DescribeInstances"]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role" "stop_invoker" {
+  count = var.stop_schedule_cron != "" ? 1 : 0
+
+  name = "${var.name}-stop-invoker"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -137,37 +176,30 @@ resource "aws_iam_role" "stop_lambda" {
   })
 }
 
-resource "aws_iam_role_policy" "stop_lambda" {
+resource "aws_iam_role_policy" "stop_invoker" {
   count = var.stop_schedule_cron != "" ? 1 : 0
 
-  role = aws_iam_role.stop_lambda[0].id
+  role = aws_iam_role.stop_invoker[0].id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Action    = ["lambda:InvokeFunction"]
-        Resource  = [aws_lambda_function.stop[0].arn]
-      },
-      {
-        Effect    = "Allow"
-        Action    = ["ec2:StopInstances", "ec2:DescribeInstances"]
-        Resource  = "*"
-      },
-    ]
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["lambda:InvokeFunction"]
+      Resource = [aws_lambda_function.stop[0].arn]
+    }]
   })
 }
 
 resource "aws_lambda_function" "stop" {
   count = var.stop_schedule_cron != "" ? 1 : 0
 
-  function_name = "${var.name}-ec2-stop"
-  role          = aws_iam_role.stop_lambda[0].arn
-  runtime       = "python3.13"
-  handler       = "lambda.handler"
-  filename      = data.archive_file.stop_lambda[0].output_path
+  function_name    = "${var.name}-ec2-stop"
+  role             = aws_iam_role.stop_exec[0].arn
+  runtime          = "python3.13"
+  handler          = "lambda.handler"
+  filename         = data.archive_file.stop_lambda[0].output_path
   source_code_hash = data.archive_file.stop_lambda[0].output_base64sha256
-  timeout       = 60
+  timeout          = 60
 
   tags = { Environment = var.environment }
 }
@@ -175,7 +207,7 @@ resource "aws_lambda_function" "stop" {
 resource "aws_scheduler_schedule" "nightly_stop" {
   count = var.stop_schedule_cron != "" ? 1 : 0
 
-  name       = "${var.name}-ec2-stop"
+  name = "${var.name}-ec2-stop"
   flexible_time_window {
     mode = "OFF"
   }
@@ -183,6 +215,6 @@ resource "aws_scheduler_schedule" "nightly_stop" {
 
   target {
     arn      = aws_lambda_function.stop[0].arn
-    role_arn = aws_iam_role.stop_lambda[0].arn
+    role_arn = aws_iam_role.stop_invoker[0].arn
   }
 }
