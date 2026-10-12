@@ -63,6 +63,11 @@ data "aws_iam_policy_document" "trail" {
       variable = "aws:SourceAccount"
       values   = [data.aws_caller_identity.current.account_id]
     }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_cloudtrail.org.arn]
+    }
   }
 }
 
