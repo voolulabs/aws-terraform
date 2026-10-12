@@ -4,7 +4,11 @@
 # única da instância) antes do primeiro apply com identity_center_enabled=true.
 # Fluxo: apply org (false) -> habilitar no console -> re-apply (true).
 locals {
-  identity_center = var.identity_center_enabled ? one(data.aws_ssoadmin_instances.main[*].identity_store_ids) : null
+  # Arn da instância (módulos ssoadmin) VS id do identity store (recursos
+  # identitystore) — identificadores distintos da mesma instância. try: a data
+  # é vazia enquanto a instância não estiver habilitada (flag false).
+  identity_center_arn = try(data.aws_ssoadmin_instances.main[0].arns[0], null)
+  identity_store_id   = try(data.aws_ssoadmin_instances.main[0].identity_store_ids[0], null)
 }
 
 data "aws_ssoadmin_instances" "main" {
@@ -16,7 +20,7 @@ data "aws_caller_identity" "current" {}
 resource "aws_identitystore_group" "admins" {
   count = var.identity_center_enabled ? 1 : 0
 
-  identity_store_id = local.identity_center
+  identity_store_id = local.identity_store_id
   display_name      = "aws-admins"
   description       = "Administradores da conta (MFA obrigatório no console)"
 }
@@ -24,7 +28,7 @@ resource "aws_identitystore_group" "admins" {
 resource "aws_identitystore_group" "developers" {
   count = var.identity_center_enabled ? 1 : 0
 
-  identity_store_id = local.identity_center
+  identity_store_id = local.identity_store_id
   display_name      = "aws-developers"
   description       = "Devs: PowerUser em dev/test, leitura em prod"
 }
@@ -32,7 +36,7 @@ resource "aws_identitystore_group" "developers" {
 resource "aws_identitystore_user" "owner" {
   count = var.identity_center_enabled ? 1 : 0
 
-  identity_store_id = local.identity_center
+  identity_store_id = local.identity_store_id
   user_name         = var.owner_user_name
   display_name      = var.owner_display_name
   name {
@@ -48,7 +52,7 @@ resource "aws_identitystore_user" "owner" {
 resource "aws_identitystore_group_membership" "owner_admin" {
   count = var.identity_center_enabled ? 1 : 0
 
-  identity_store_id = local.identity_center
+  identity_store_id = local.identity_store_id
   group_id          = aws_identitystore_group.admins[0].group_id
   member_id         = aws_identitystore_user.owner[0].user_id
 }
@@ -57,7 +61,7 @@ resource "aws_identitystore_group_membership" "owner_admin" {
 resource "aws_ssoadmin_permission_set" "administrator" {
   count = var.identity_center_enabled ? 1 : 0
 
-  instance_arn     = local.identity_center
+  instance_arn     = local.identity_center_arn
   name             = "AdministratorAccess"
   session_duration = "PT4H"
 }
@@ -65,7 +69,7 @@ resource "aws_ssoadmin_permission_set" "administrator" {
 resource "aws_ssoadmin_managed_policy_attachment" "administrator" {
   count = var.identity_center_enabled ? 1 : 0
 
-  instance_arn       = local.identity_center
+  instance_arn       = local.identity_center_arn
   permission_set_arn = aws_ssoadmin_permission_set.administrator[0].arn
   managed_policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
@@ -73,7 +77,7 @@ resource "aws_ssoadmin_managed_policy_attachment" "administrator" {
 resource "aws_ssoadmin_permission_set" "developer" {
   count = var.identity_center_enabled ? 1 : 0
 
-  instance_arn     = local.identity_center
+  instance_arn     = local.identity_center_arn
   name             = "DeveloperPowerUser"
   session_duration = "PT12H"
 }
@@ -81,7 +85,7 @@ resource "aws_ssoadmin_permission_set" "developer" {
 resource "aws_ssoadmin_managed_policy_attachment" "developer" {
   count = var.identity_center_enabled ? 1 : 0
 
-  instance_arn       = local.identity_center
+  instance_arn       = local.identity_center_arn
   permission_set_arn = aws_ssoadmin_permission_set.developer[0].arn
   managed_policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
 }
@@ -92,7 +96,7 @@ resource "aws_ssoadmin_managed_policy_attachment" "developer" {
 resource "aws_ssoadmin_account_assignment" "admins_all" {
   for_each = var.identity_center_enabled ? toset(concat([data.aws_caller_identity.current.account_id], [for k, a in aws_organizations_account.env : a.id])) : toset([])
 
-  instance_arn       = local.identity_center
+  instance_arn       = local.identity_center_arn
   permission_set_arn = aws_ssoadmin_permission_set.administrator[0].arn
   principal_id       = aws_identitystore_group.admins[0].group_id
   principal_type     = "GROUP"
@@ -103,7 +107,7 @@ resource "aws_ssoadmin_account_assignment" "admins_all" {
 resource "aws_ssoadmin_account_assignment" "developers_env" {
   for_each = var.identity_center_enabled ? toset([aws_organizations_account.env["dev"].id, aws_organizations_account.env["test"].id]) : toset([])
 
-  instance_arn       = local.identity_center
+  instance_arn       = local.identity_center_arn
   permission_set_arn = aws_ssoadmin_permission_set.developer[0].arn
   principal_id       = aws_identitystore_group.developers[0].group_id
   principal_type     = "GROUP"
