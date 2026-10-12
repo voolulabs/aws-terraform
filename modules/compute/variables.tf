@@ -8,11 +8,6 @@ variable "environment" {
   type        = string
 }
 
-variable "vpc_id" {
-  description = "VPC do ambiente (saída do módulo network)"
-  type        = string
-}
-
 variable "subnet_id" {
   description = "Subnet pública da instância do stack POS"
   type        = string

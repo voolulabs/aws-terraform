@@ -7,12 +7,6 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
-locals {
-  github_conditions = {
-    repo = var.github_repo
-  }
-}
-
 # Trust POR ROLE (revisão adversarial 2026-10-12): plan aceita pull_request;
 # apply e org exigem o claim de environment do job (os events de PR/push sem
 # environment não passam) — a comporta vive no IAM, não só no YAML do workflow.

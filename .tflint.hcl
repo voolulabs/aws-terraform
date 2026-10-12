@@ -13,6 +13,13 @@ plugin "aws" {
   source  = "github.com/terraform-linters/tflint-ruleset-aws"
 }
 
+# Este repo é uma coleção de stacks de infra (org/envs/modules de infraestrutura),
+# não um módulo único de registry — as exigências de main/variables/outputs files
+# do esqueleto de módulo não se aplicam à raiz.
+rule "terraform_standard_module_structure" {
+  enabled = false
+}
+
 rule "terraform_deprecated_interpolation" {
   enabled = true
 }

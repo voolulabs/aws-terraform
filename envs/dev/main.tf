@@ -23,7 +23,6 @@ module "compute" {
 
   name               = local.name
   environment        = var.environment
-  vpc_id             = module.network.vpc_id
   subnet_id          = module.network.public_subnet_ids[0]
   public_stack_sg_id = module.network.public_stack_sg_id
   instance_type      = var.instance_type
