@@ -12,6 +12,12 @@ variable "environment" {
 variable "deployment_account_id" {
   description = "ID da conta membro deste ambiente (saída account_ids do org/)"
   type        = string
+
+  # Guarda de apply acidental: o placeholder PREENCHER-apos-org precisa trocá-lo
+  validation {
+    condition     = can(regex("^\\d{12}$", var.deployment_account_id))
+    error_message = "deployment_account_id deve ser o ID de 12 dígitos da conta membro (saída account_ids do org/)."
+  }
 }
 
 variable "cidr" {

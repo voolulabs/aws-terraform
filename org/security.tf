@@ -58,6 +58,11 @@ data "aws_iam_policy_document" "trail" {
       variable = "s3:x-amz-acl"
       values   = ["bucket-owner-full-control"]
     }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
   }
 }
 
