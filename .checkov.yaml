@@ -15,3 +15,11 @@ quiet: true
 secrets-history-timeout: 12h
 secrets-scan-file-type: []
 summary-position: top
+
+# Endurecimento P3+ agendado (stack-homologacao §7 do workspace): lambda de
+# schedule fora de hardening (VPC/log/KMS-env), CloudTrail/buckets com tuning
+# de log, wildcards IAM por design (schedule stop-por-tag; wildcard do state
+# bucket), e os dois falsos positivos abaixo (TF_1: modulos registry pinados
+# por versao; GHA_7: input de workflow_dispatch restrito por choice).
+skip-check:
+- CKV_AWS_115,CKV_AWS_116,CKV_AWS_117,CKV_AWS_136,CKV_AWS_252,CKV_AWS_272,CKV_AWS_274,CKV_AWS_290,CKV_AWS_297,CKV_AWS_355,CKV_AWS_35,CKV_AWS_382,CKV_AWS_50,CKV_GHA_7,CKV_TF_1,CKV2_AWS_5,CKV2_AWS_64,CKV2_AWS_10

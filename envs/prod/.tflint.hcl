@@ -1,0 +1,79 @@
+config {
+  format     = "compact"
+  plugin_dir = "~/.tflint.d/plugins"
+
+  call_module_type    = "local"
+  force               = false
+  disabled_by_default = true
+}
+
+plugin "aws" {
+  enabled = true
+  version = "0.37.0"
+  source  = "github.com/terraform-linters/tflint-ruleset-aws"
+}
+
+# Este repo é uma coleção de stacks de infra (org/envs/modules de infraestrutura),
+# não um módulo único de registry — as exigências de main/variables/outputs files
+# do esqueleto de módulo não se aplicam à raiz.
+rule "terraform_standard_module_structure" {
+  enabled = false
+}
+
+rule "terraform_deprecated_interpolation" {
+  enabled = true
+}
+
+rule "terraform_deprecated_index" {
+  enabled = true
+}
+
+rule "terraform_unused_declarations" {
+  enabled = true
+}
+
+rule "terraform_comment_syntax" {
+  enabled = true
+}
+
+rule "terraform_documented_outputs" {
+  enabled = true
+}
+
+rule "terraform_documented_variables" {
+  enabled = true
+}
+
+rule "terraform_typed_variables" {
+  enabled = true
+}
+
+rule "terraform_module_version" {
+  enabled = true
+}
+
+rule "terraform_module_pinned_source" {
+  enabled = true
+}
+
+rule "terraform_naming_convention" {
+  enabled = true
+}
+
+rule "terraform_required_version" {
+  enabled = true
+}
+
+rule "terraform_required_providers" {
+  enabled = true
+}
+
+# Repository de stacks (ver nota acima): a exigencia de main/variables/
+# outputs files do esqueleto de modulo unico nao se aplica na raiz.
+rule "terraform_standard_module_structure" {
+  enabled = false
+}
+
+rule "terraform_workspace_remote" {
+  enabled = true
+}

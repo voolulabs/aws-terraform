@@ -1,73 +1,214 @@
 name: Deploy
 
+# GitOps: PR roda checks + plan; merge em main aplica dev -> test -> prod
+# (prod com approval do environment). Os stacks bootstrap/ e org/ são
+# one-time/manual (workflow_dispatch) — nunca disparam por push.
+
 permissions:
-  id-token: write # This is required for requesting the JWT
-  contents: read # This is required for actions/checkout
-  pull-requests: write # This is required to add comments to Pull Requests
-  deployments: write # This is required to deactivate deployments
+  id-token: write
+  contents: read
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 on:
   workflow_dispatch:
+    inputs:
+      stack:
+        description: "Stack para aplicar manualmente (somente org/)"
+        type: choice
+        options: [org]
+        required: true
   pull_request:
-    paths:
-      - "**.tf*"
-      - ".github/workflows/deploy.yml"
+    paths: ["**.tf", "**.tfvars", ".github/workflows/deploy.yml"]
   push:
-    branches:
-      - "main"
-    paths:
-      - "**.tf*"
-      - ".github/workflows/deploy.yml"
+    branches: [main]
+    paths: ["**.tf", "**.tfvars", ".github/workflows/deploy.yml"]
+
+env:
+  TF_VERSION: "1.15.5"
+  AWS_REGION: sa-east-1
 
 jobs:
-  deploy-dev:
-    name: Dev Deployment
-    uses: aws-samples/aws-terraform-reusable-workflow/.github/workflows/terraform-reusable.yml@v1.3.0
-    with:
-      deploy: true
-      tf-version: ${{ vars.TF_VERSION }}
-      aws-region: us-east-1
-      environment: "dev"
-      ref: v1.3.0
-      local-execution-mode: true
-      enable-github-modules: true
-    secrets:
-      terraform-execution-iam-plan-role-arn: ${{ secrets.DEV_AWS_PLAN_ROLE_ARN }}
-      terraform-execution-iam-apply-role-arn: ${{ secrets.DEV_AWS_APPLY_ROLE_ARN }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+  checks:
+    name: fmt + validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        stack: [org, envs/dev, envs/test, envs/prod]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: fmt
+        run: terraform fmt -check -recursive ${{ matrix.stack }}
+      - name: init (sem backend)
+        working-directory: ${{ matrix.stack }}
+        run: terraform init -backend=false -input=false
+      - name: validate
+        working-directory: ${{ matrix.stack }}
+        run: terraform validate
 
-  deploy-test:
-    name: Test Deployment
-    needs: [deploy-dev]
-    if: github.ref == 'refs/heads/main'
-    uses: aws-samples/aws-terraform-reusable-workflow/.github/workflows/terraform-reusable.yml@v1.3.0
-    with:
-      deploy: true
-      tf-version: ${{ vars.TF_VERSION }}
-      aws-region: us-west-2
-      environment: "test"
-      ref: v1.3.0
-      local-execution-mode: true
-      enable-github-modules: true
-    secrets:
-      terraform-execution-iam-plan-role-arn: ${{ secrets.TEST_AWS_PLAN_ROLE_ARN }}
-      terraform-execution-iam-apply-role-arn: ${{ secrets.TEST_AWS_APPLY_ROLE_ARN }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+  plan-dev:
+    name: plan dev
+    needs: [checks]
+    if: github.event_name == 'pull_request' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEV_AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + plan
+        working-directory: envs/dev
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color -out=plan.tfplan
+          terraform show -no-color plan.tfplan > plan.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan-dev
+          path: envs/dev/plan.txt
 
-  deploy-prod:
-    name: Prod Deployment
-    needs: [deploy-test]
-    if: github.ref == 'refs/heads/main'
-    uses: aws-samples/aws-terraform-reusable-workflow/.github/workflows/terraform-reusable.yml@v1.3.0
-    with:
-      deploy: true
-      tf-version: ${{ vars.TF_VERSION }}
-      aws-region: us-east-2
-      environment: "prod"
-      ref: v1.3.0
-      local-execution-mode: true
-      enable-github-modules: true
-    secrets:
-      terraform-execution-iam-plan-role-arn: ${{ secrets.PROD_AWS_PLAN_ROLE_ARN }}
-      terraform-execution-iam-apply-role-arn: ${{ secrets.PROD_AWS_APPLY_ROLE_ARN }}
-      github-token: ${{ secrets.GITHUB_TOKEN }}
+  plan-test:
+    name: plan test
+    needs: [checks]
+    if: github.event_name == 'pull_request' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TEST_AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + plan
+        working-directory: envs/test
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color -out=plan.tfplan
+          terraform show -no-color plan.tfplan > plan.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan-test
+          path: envs/test/plan.txt
+
+  plan-prod:
+    name: plan prod
+    needs: [checks]
+    if: github.event_name == 'pull_request' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.PROD_AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + plan
+        working-directory: envs/prod
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -no-color -out=plan.tfplan
+          terraform show -no-color plan.tfplan > plan.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plan-prod
+          path: envs/prod/plan.txt
+
+  apply-dev:
+    name: apply dev
+    needs: [checks]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.DEV_AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + apply
+        working-directory: envs/dev
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve
+
+  apply-test:
+    name: apply test
+    needs: [apply-dev]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.TEST_AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + apply
+        working-directory: envs/test
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve
+
+  apply-prod:
+    name: apply prod (com approval)
+    needs: [apply-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    environment: prod # exige approval configurado no repo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.PROD_AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + apply
+        working-directory: envs/prod
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve
+
+  apply-org:
+    name: apply org (manual)
+    needs: [checks]
+    if: github.event_name == 'workflow_dispatch' && inputs.stack == 'org' && vars.IAC_READY == 'true'
+    runs-on: ubuntu-latest
+    environment: org-management
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ORG_APPLY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: init + apply
+        working-directory: org
+        run: |
+          terraform init -input=false
+          terraform apply -input=false -auto-approve
