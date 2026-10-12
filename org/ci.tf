@@ -13,7 +13,10 @@ locals {
   }
 }
 
-data "aws_iam_policy_document" "ci_trust" {
+# Trust POR ROLE (revisão adversarial 2026-10-12): plan aceita pull_request;
+# apply e org exigem o claim de environment do job (os events de PR/push sem
+# environment não passam) — a comporta vive no IAM, não só no YAML do workflow.
+data "aws_iam_policy_document" "ci_trust_plan" {
   statement {
     actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
@@ -31,23 +34,62 @@ data "aws_iam_policy_document" "ci_trust" {
       values = [
         "repo:${var.github_repo}:ref:refs/heads/main",
         "repo:${var.github_repo}:pull_request",
-        "repo:${var.github_repo}:environment:*",
       ]
     }
   }
 }
 
+data "aws_iam_policy_document" "ci_trust_apply" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringLike"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repo}:environment:*"]
+    }
+  }
+}
+
+data "aws_iam_policy_document" "ci_trust_org" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values   = ["repo:${var.github_repo}:environment:org-management"]
+    }
+  }
+}
+
 resource "aws_iam_role" "ci_plan" {
-  name               = "github-terraform-plan"
-  assume_role_policy = data.aws_iam_policy_document.ci_trust.json
+  name                 = "github-terraform-plan"
+  assume_role_policy   = data.aws_iam_policy_document.ci_trust_plan.json
   max_session_duration = 3600
 
   tags = { Stack = "org", Tipo = "maquina-ci" }
 }
 
 resource "aws_iam_role" "ci_apply" {
-  name               = "github-terraform-apply"
-  assume_role_policy = data.aws_iam_policy_document.ci_trust.json
+  name                 = "github-terraform-apply"
+  assume_role_policy   = data.aws_iam_policy_document.ci_trust_apply.json
   max_session_duration = 14400
 
   tags = { Stack = "org", Tipo = "maquina-ci" }
@@ -60,6 +102,12 @@ resource "aws_iam_role_policy_attachment" "ci_plan_readonly" {
 }
 
 data "aws_iam_policy_document" "ci_plan_state" {
+  # O provider dos envs assume a OrganizationAccountAccessRole da conta membro:
+  # o plan precisa de sts:AssumeRole (ReadOnlyAccess não inclui).
+  statement {
+    actions   = ["sts:AssumeRole"]
+    resources = [for k, a in aws_organizations_account.env : "arn:aws:iam::${a.id}:role/OrganizationAccountAccessRole"]
+  }
   statement {
     actions   = ["s3:ListBucket", "s3:GetObject"]
     resources = ["arn:aws:s3:::${var.state_bucket_name}", "arn:aws:s3:::${var.state_bucket_name}/*"]
@@ -113,7 +161,7 @@ resource "aws_iam_role_policy" "ci_apply" {
 # administra a conta de gestão (Organizations, Identity Center, CloudTrail).
 resource "aws_iam_role" "ci_org" {
   name                 = "github-terraform-org"
-  assume_role_policy   = data.aws_iam_policy_document.ci_trust.json
+  assume_role_policy   = data.aws_iam_policy_document.ci_trust_org.json
   max_session_duration = 7200
 
   tags = { Stack = "org", Tipo = "maquina-ci" }
@@ -153,9 +201,9 @@ resource "aws_iam_role_policy" "ai_agent_mcp" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect    = "Allow"
-      Action    = ["signin:AuthorizeOAuth2Access", "signin:CreateOAuth2Token"]
-      Resource  = "arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com"
+      Effect   = "Allow"
+      Action   = ["signin:AuthorizeOAuth2Access", "signin:CreateOAuth2Token"]
+      Resource = "arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com"
     }]
   })
 }
