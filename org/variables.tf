@@ -20,9 +20,9 @@ variable "account_emails" {
   description = "Email ÚNICO por conta membro (usar alias do domínio do dono). PREENCHER antes do primeiro apply — a AWS exige email globalmente único por conta."
   type        = map(string)
   default = {
-    dev  = "aws-dev@PREENCHER-exemplo.com.br"
-    test = "aws-test@PREENCHER-exemplo.com.br"
-    prod = "aws-prod@PREENCHER-exemplo.com.br"
+    dev  = "aws-dev@agenciavoolu.com"
+    test = "aws-test@agenciavoolu.com"
+    prod = "aws-prod@agenciavoolu.com"
   }
 }
 
