@@ -68,8 +68,10 @@ rule "terraform_required_providers" {
   enabled = true
 }
 
+# Repository de stacks (ver nota acima): a exigencia de main/variables/
+# outputs files do esqueleto de modulo unico nao se aplica na raiz.
 rule "terraform_standard_module_structure" {
-  enabled = true
+  enabled = false
 }
 
 rule "terraform_workspace_remote" {
