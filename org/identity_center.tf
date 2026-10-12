@@ -1,3 +1,5 @@
+data "aws_organizations_organization" "current" {}
+
 # Identidade humana via IAM Identity Center (decisão 2026-10-11: Organizations
 # agora => Identity Center em vez de IAM users por conta). O Identity Center
 # precisa ser HABILITADO uma vez no console (região home sa-east-1 — decisão
@@ -94,7 +96,7 @@ resource "aws_ssoadmin_managed_policy_attachment" "developer" {
 # Gate via for_each (vazio quando o Identity Center não está habilitado —
 # primeiro apply): count e for_each são mutuamente exclusivos no Terraform.
 resource "aws_ssoadmin_account_assignment" "admins_all" {
-  for_each = var.identity_center_enabled ? toset(concat([data.aws_caller_identity.current.account_id], [for k, a in aws_organizations_account.env : a.id])) : toset([])
+  for_each = var.identity_center_enabled ? toset(concat([data.aws_caller_identity.current.account_id], [for a in data.aws_organizations_organization.current.accounts : a.id])) : toset([])
 
   instance_arn       = local.identity_center_arn
   permission_set_arn = aws_ssoadmin_permission_set.administrator[0].arn
