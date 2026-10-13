@@ -2,8 +2,7 @@
 
 Infraestrutura AWS como código da solução SaaS, com GitOps (GitHub Actions +
 OIDC + roles separadas de plan/apply). Base: template oficial
-`aws-samples/aws-terraform-template`. Região única **sa-east-1** (decisão do
-dono, 2026-10-11).
+`aws-samples/aws-terraform-template`. Região única **sa-east-1**.
 
 ## Arquitetura
 

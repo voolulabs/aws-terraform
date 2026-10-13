@@ -41,13 +41,13 @@ variable "identity_center_enabled" {
 variable "owner_user_name" {
   description = "Usuário Identity Center do dono"
   type        = string
-  default     = "chico"
+  default     = "aws-admin"
 }
 
 variable "owner_email" {
   description = "Email do dono no Identity Center"
   type        = string
-  default     = "chico@agenciavoolu.com"
+  default     = "aws-admin@agenciavoolu.com"
 }
 
 variable "owner_display_name" {
