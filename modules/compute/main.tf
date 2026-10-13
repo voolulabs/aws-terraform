@@ -29,7 +29,7 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
 }
 
 resource "aws_iam_role_policy" "assets_read" {
-  count = var.assets_bucket_arn != null ? 1 : 0
+  count = var.enable_assets_access ? 1 : 0
 
   role = aws_iam_role.instance.id
   policy = jsonencode({

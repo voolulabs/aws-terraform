@@ -40,3 +40,12 @@ variable "assets_bucket_arn" {
   type        = string
   default     = null
 }
+
+# Gate booleano conhecido no plan: count por output de módulo (ARN) é unknown
+# até aplicar e invalida o count; o bool decola a criação, o ARN é resolvido
+# no apply.
+variable "enable_assets_access" {
+  description = "Perfil da instância lê o bucket de assets"
+  type        = bool
+  default     = false
+}

@@ -26,7 +26,7 @@ module "vpc" {
 # storefront). SSH não existe: acesso à instância é exclusivamente via SSM.
 resource "aws_security_group" "public_stack" {
   name_prefix = "${var.name}-public"
-  description = "Portas públicas do stack de homologação POS"
+  description = "Portas do stack de homologacao POS"
   vpc_id      = module.vpc.vpc_id
 
   dynamic "ingress" {
@@ -77,7 +77,7 @@ module "network_firewall" {
   version = "~> 1.0"
 
   name        = "${var.name}-fw"
-  description = "Firewall de rede do ambiente prod (decisão do dono: só no prod)"
+  description = "Firewall de rede do ambiente prod (decisao do dono: so no prod)"
   vpc_id      = module.vpc.vpc_id
 
   subnet_mapping = {
