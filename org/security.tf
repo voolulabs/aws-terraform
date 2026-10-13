@@ -72,9 +72,13 @@ data "aws_iam_policy_document" "trail" {
 }
 
 resource "aws_cloudtrail" "org" {
-  name                          = "voolulabs-pos-org-trail"
-  s3_bucket_name                = module.trail_bucket.s3_bucket_id
-  is_organization_trail         = true
+  name                  = "voolulabs-pos-org-trail"
+  s3_bucket_name        = module.trail_bucket.s3_bucket_id
+  is_organization_trail = true
+  # Race no 1º apply (2026-10-12): o trail não tem referência implícita ao
+  # módulo Organizations e criou antes do org estar ativado — Organizations-
+  # NotInUseException. Dependência explícita.
+  depends_on                    = [aws_organizations_organization.main]
   is_multi_region_trail         = true
   include_global_service_events = true
   enable_log_file_validation    = true

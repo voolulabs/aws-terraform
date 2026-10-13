@@ -29,17 +29,24 @@ resource "aws_iam_role_policy_attachment" "ecr_read" {
 }
 
 resource "aws_iam_role_policy" "assets_read" {
-  count = var.assets_bucket_arn != null ? 1 : 0
+  count = var.enable_assets_access ? 1 : 0
 
   role = aws_iam_role.instance.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Action    = ["s3:GetObject", "s3:ListBucket"]
-      Resources = [var.assets_bucket_arn, "${var.assets_bucket_arn}/*"]
-    }]
-  })
+  # Literal heredoc: com jsonencode sobre strings de output de modulo
+  # plenamente conhecidas a API do IAM chegou a rejeitar com
+  # MalformedPolicyDocument nao deterministico; literal e reproduzivel.
+  policy = <<-POLICY
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:GetObject", "s3:ListBucket"],
+          "Resource": ["${var.assets_bucket_arn}", "${var.assets_bucket_arn}/*"]
+        }
+      ]
+    }
+  POLICY
 }
 
 resource "aws_iam_instance_profile" "main" {

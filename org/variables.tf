@@ -20,9 +20,9 @@ variable "account_emails" {
   description = "Email ÚNICO por conta membro (usar alias do domínio do dono). PREENCHER antes do primeiro apply — a AWS exige email globalmente único por conta."
   type        = map(string)
   default = {
-    dev  = "aws-dev@PREENCHER-exemplo.com.br"
-    test = "aws-test@PREENCHER-exemplo.com.br"
-    prod = "aws-prod@PREENCHER-exemplo.com.br"
+    dev  = "aws-dev@agenciavoolu.com"
+    test = "aws-test@agenciavoolu.com"
+    prod = "aws-prod@agenciavoolu.com"
   }
 }
 
@@ -39,27 +39,27 @@ variable "identity_center_enabled" {
 }
 
 variable "owner_user_name" {
-  description = "Usuário Identity Center do dono (PREENCHER com o email real)"
+  description = "Usuário Identity Center do dono"
   type        = string
-  default     = "PREENCHER"
+  default     = "aws-admin"
 }
 
 variable "owner_email" {
   description = "Email do dono no Identity Center"
   type        = string
-  default     = "PREENCHER@exemplo.com.br"
+  default     = "aws-admin@agenciavoolu.com"
 }
 
 variable "owner_display_name" {
   description = "Nome exibido do dono"
   type        = string
-  default     = "Dono Voolulabs"
+  default     = "Chico Voolulabs"
 }
 
 variable "owner_given_name" {
   description = "Primeiro nome do dono"
   type        = string
-  default     = "Dono"
+  default     = "Chico"
 }
 
 variable "owner_family_name" {

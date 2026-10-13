@@ -14,8 +14,13 @@ terraform {
 # (preencher o tfvars após o primeiro apply do org/).
 provider "aws" {
   region = var.region
-  assume_role {
-    role_arn = "arn:aws:iam::${var.deployment_account_id}:role/OrganizationAccountAccessRole"
+  # assume_role desligado quando o stack roda DENTRO da conta de execução
+  # (temporário pós-cota: test roda na gestão até as contas membros abrirem).
+  dynamic "assume_role" {
+    for_each = var.assume_deployment_role ? [1] : []
+    content {
+      role_arn = "arn:aws:iam::${var.deployment_account_id}:role/OrganizationAccountAccessRole"
+    }
   }
 
   default_tags {
