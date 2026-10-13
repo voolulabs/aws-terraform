@@ -27,5 +27,6 @@ module "compute" {
   public_stack_sg_id = module.network.public_stack_sg_id
   instance_type      = var.instance_type
   stop_schedule_cron = var.stop_schedule_cron
-  assets_bucket_arn  = module.storage.assets_bucket_arn
+  assets_bucket_arn    = module.storage.assets_bucket_arn
+  enable_assets_access = true
 }
