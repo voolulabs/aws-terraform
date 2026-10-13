@@ -9,6 +9,12 @@ variable "environment" {
   type        = string
 }
 
+variable "assume_deployment_role" {
+  description = "Assume OrganizationAccountAccessRole (false enquanto o stack roda na própria conta de gestão, temporário pós-cota)"
+  type        = bool
+  default     = true
+}
+
 variable "deployment_account_id" {
   description = "ID da conta membro deste ambiente (saída account_ids do org/)"
   type        = string
