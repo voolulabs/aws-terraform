@@ -74,7 +74,7 @@ jobs:
           terraform init -input=false
           terraform plan -input=false -no-color -out=plan.tfplan
           terraform show -no-color plan.tfplan > plan.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: plan-dev
           path: envs/dev/plan.txt
@@ -99,7 +99,7 @@ jobs:
           terraform init -input=false
           terraform plan -input=false -no-color -out=plan.tfplan
           terraform show -no-color plan.tfplan > plan.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: plan-test
           path: envs/test/plan.txt
@@ -124,7 +124,7 @@ jobs:
           terraform init -input=false
           terraform plan -input=false -no-color -out=plan.tfplan
           terraform show -no-color plan.tfplan > plan.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: plan-prod
           path: envs/prod/plan.txt
